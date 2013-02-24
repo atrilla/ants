@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+    <head>
+        <title>JS1k, 1k demo submission [ID]</title>
+        <meta charset="utf-8" />
+    </head>
+    <body>
+        <canvas id="c"></canvas>
+        <script>
+            var b = document.body;
+            var c = document.getElementsByTagName('canvas')[0];
+            var a = c.getContext('2d');
+            document.body.clientWidth; // fix bug in webkit: http://qfox.nl/weblog/218
+        </script>
+        <script>
+// start of submission //
+
+// Ant colony: ant foraging and going home, like particle filter but with
+//             moving particles.
+//
+// By:      Alexandre Trilla (atrilla)
+// When:    18/02/2013
+//
+var step = 5;                               // Movement in pixels
+var food_pos = new Array(100, 100);         // Lair position
+var lair_pos = new Array(400, 400);         // Food position
+var world_bound = 500;                      // Bounds in px
+var obj_dist = step * 3;                    // Goal reach
+var angle = Math.PI / 4;                    // Direction variation
+var neoghbour_dist = 2 * step;              // Closeness
+var num_pipl = 50;                          // Amount of ants
+var trail_dist = calc_dist(                 // Trail line
+    food_pos[0], food_pos[1],
+    lair_pos[0], lair_pos[1]);
+var trail_avail = false;                    // One ant found the way
+
+function Ant() {
+    this.dir = Math.random() * 2 * Math.PI;
+                                            // Any init direction
+    this.posX = lair_pos[0];                // Starts at home
+    this.posY = lair_pos[1];
+    this.state = 0;                         // State
+    this.transit = statemachine;            // Machine
+    this.path = trajectory;                 // Correct direction
+}
+
+function calc_dist(x0, y0, x1, y1) {        // Euclidean distance
+    dist = Math.sqrt(
+        Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2));
+    return dist;
+}
+
+function trajectory(objPos, currentDist) {  // Path correction
+    newdir = this.dir;
+    newposX = this.posX + Math.cos(newdir) * step;
+    newposY = this.posY + Math.sin(newdir) * step;
+    new_dist = calc_dist(objPos[0], objPos[1], newposX, newposY);
+    if (new_dist < currentDist) {
+        this.dir = newdir;
+        replot(this.posX, this.posY, newposX, newposY);
+        this.posX = newposX;
+        this.posY = newposY;
+    } else {
+        this.dir = Math.random() * 2 * Math.PI;
+    }
+}
+
+function statemachine() {                   // State Machine ant behaviour
+    switch (this.state) {
+        case 0:                             // Forage
+            dist_food = calc_dist(
+                food_pos[0], food_pos[1], this.posX, this.posY);
+            if (dist_food > obj_dist) {
+                if (trail_avail) {
+                    total_dist = calc_dist( // Check if trail is crossed
+                        lair_pos[0], lair_pos[1], this.posX, this.posY) +
+                        calc_dist(
+                        food_pos[0], food_pos[1], this.posX, this.posY);
+                    if (Math.abs(total_dist - trail_dist) < step) {
+                        this.state = 2;
+                        this.dir = Math.atan2(food_pos[0] - this.posX,
+                            food_pos[1] - this.posY);
+                        break;
+                    }
+                }
+                this.dir += Math.random() * 2 * angle - angle;
+                newposX = this.posX + Math.cos(this.dir) * step;
+                newposY = this.posY + Math.sin(this.dir) * step;
+                outofbounds = false;        // Check world bounds
+                if ((newposX > world_bound - step) || (newposX < 1)) {
+                    newposX = this.posX;
+                    outofbounds = true;
+                }
+                if ((newposY > world_bound - step) || (newposY < 1)) {
+                    newposY = this.posY;
+                    outofbounds = true;
+                }
+                if (!outofbounds) {
+                    replot(this.posX, this.posY, newposX, newposY);
+                    this.posX = newposX;
+                    this.posY = newposY;
+                }
+            } else {
+                this.state = 1;
+                this.dir = Math.atan2(lair_pos[0] - this.posX,
+                    lair_pos[1] - this.posY);
+            }
+            break;
+        case 1:                             // Go home
+            dist_lair = calc_dist(
+                lair_pos[0], lair_pos[1], this.posX, this.posY);
+            if (dist_lair > obj_dist) {
+                this.path(lair_pos, dist_lair);
+            } else {
+                trail_avail = true;
+                this.state = 2;
+                this.dir = Math.atan2(food_pos[0] - this.posX,
+                    food_pos[1] - this.posY);
+            }
+            break;
+        case 2:                             // Get more food
+            dist_food = calc_dist(
+                food_pos[0], food_pos[1], this.posX, this.posY);
+            if (dist_food > obj_dist) {
+                this.path(food_pos, dist_food);
+            } else {
+                this.state = 1;
+                this.dir = Math.atan2(lair_pos[0] - this.posX,
+                    lair_pos[1] - this.posY);
+            }
+            break;
+    }
+}
+
+function replot(old_x, old_y, new_x, new_y) {
+    a.fillStyle = "#FF0000";                // Replot the world
+    a.fillRect(food_pos[0], food_pos[1], 3*step, 3*step);
+    a.fillStyle = "#0000FF";
+    a.fillRect(lair_pos[0], lair_pos[1], 3*step, 3*step);
+    a.fillStyle = "#FFFFFF";                // Ant movement
+    a.fillRect(old_x, old_y, step, step);
+    a.fillStyle = "#000000";
+    a.fillRect(new_x, new_y, step, step);
+}
+
+c.width = c.height = world_bound + 1;       // World creation
+a.rect(1,1, world_bound, world_bound);
+a.stroke();
+
+population = new Array(num_pipl);           // Populate the world
+var i,j;
+for (i = 0; i < num_pipl; i++) {
+    population[i] = new Ant();
+}
+
+function runworld() {                       // Enjoy
+    for (i = 0; i < num_pipl; i++) {
+        population[i].transit();
+    }
+    setTimeout("runworld()",100);
+}
+runworld();
+
+// end of submission //
+        </script>
+    </body>
+</html>
