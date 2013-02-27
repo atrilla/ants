@@ -8,6 +8,8 @@ foraging behaviour is cast as a biologically-inspired search algorithm for
 an optimisation procedure, considering that the objective is a cost 
 function to be minimised.
 
+A demo is available [here](http://atrilla.net/data/files/shim_ants.html).
+
 Copying
 -------
 
